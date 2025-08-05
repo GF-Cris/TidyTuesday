@@ -1,0 +1,136 @@
+---
+title: "tidytuesdayR"
+author: "GF-Cris"
+date: "2025-08-04"
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+```
+
+## Get Data
+```{r}
+tuesdata <- tidytuesdayR::tt_load('2025-08-05')
+
+income_inequality_processed <- tuesdata$income_inequality_processed
+income_inequality_raw <- tuesdata$income_inequality_raw
+
+```
+
+## Data Exploration
+```{r}
+glimpse(income_inequality_processed)
+glimpse(income_inequality_raw)
+
+
+skim(income_inequality_processed)
+skim(income_inequality_raw)
+
+income_inequality_processed %>% 
+  dplyr::group_by(Entity) %>% 
+  skim() 
+```
+
+
+## Tidy Data
+```{r}
+Redistribution <- income_inequality_processed %>% 
+  drop_na(gini_mi_eq, gini_dhi_eq) %>% 
+  mutate(Redistribution_Effect = gini_mi_eq-gini_dhi_eq) %>% 
+  mutate(Inequality_Reduction_Efficiency = Redistribution_Effect/gini_mi_eq)
+
+redistribution_long <- Redistribution %>%
+  filter(Year == 2016) %>%
+  select(Entity, Redistribution_Effect, Inequality_Reduction_Efficiency) %>%
+  pivot_longer(cols = c(Redistribution_Effect, Inequality_Reduction_Efficiency),
+               names_to = "Metric",
+               values_to = "Value")
+```
+
+
+## Plot 1
+```{r fig.height=12, fig.width=15}
+plot1 <- ggplot(redistribution_long, aes(x = reorder(Entity, Value), y = Value, fill = Metric)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.8, alpha = 0.9) +
+  geom_text(aes(label = round(Value, 3)),  # round to 3 decimals or adjust as needed
+            position = position_dodge(width = 0.9),
+            hjust = -0.1,  # Move slightly outside the bar
+            size = 3.5, family = "Arial") +
+  coord_flip() +
+  scale_fill_manual(values = c("Redistribution_Effect" = "steelblue4",
+                               "Inequality_Reduction_Efficiency" = "skyblue3"),
+                    name = "", 
+                    labels = c( "Redistribution_Effect" = "Redistribution Effect",
+                                "Inequality_Reduction_Efficiency" = "Inequality Reduction Efficiency")) +
+  labs(title = "Redistribution and Inequality Reduction by Country (2016)",
+       subtitle = "Comparing redistribution effects and inequality reduction efficiency across using Gini coefficient before and after tax",
+       x = "", 
+       y = "",
+       fill = "Metric") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.background = element_rect(fill = "gray95", color = NA),
+    panel.background = element_rect(fill = "gray95", color = NA),
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "Arial"),
+    plot.subtitle = element_text(size = 15, hjust = 0.5, color = "gray40", family = "Arial"),
+    axis.text.y = element_text(face = "bold", size = 11, family = "Arial"),  # Country names bold
+    axis.text.x = element_text(size = 15, family = "Arial"),  # X-axis values
+    legend.text = element_text(size = 13, family = "Arial"),
+    plot.margin = margin(20, 20, 20, 20)
+  )
+```
+
+## Plot 2
+```{r fig.height=7, fig.width=12}
+Redistribution %>%
+  filter(Entity == "Spain") %>%
+    ggplot(aes(x = Year)) +
+    geom_line(aes(y = gini_mi_eq, color = "Pre-tax Inequality"), size = 1) +
+    geom_line(aes(y = gini_dhi_eq, color = "Post-tax Inequality"), size = 1) +
+    scale_color_manual(values = c("Pre-tax Inequality" = "steelblue4", 
+                                  "Post-tax Inequality" = "skyblue3")) +
+    labs(title = "Income Inequality Trends Over Time in Spain",
+         x = "", y = "", color = "Gini Coefficient") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.background = element_rect(fill = "gray95", color = NA),
+    panel.background = element_rect(fill = "gray95", color = NA),
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, family = "Arial"),
+    plot.subtitle = element_text(size = 15, hjust = 0.5, color = "gray40", family = "Arial"),
+    axis.text.x = element_text(size = 13, family = "Arial"),  # X-axis values
+    legend.text = element_text(size = 13, family = "Arial"),
+    plot.margin = margin(20, 20, 20, 20)
+  )
+  
+```
+
+## Save Data
+```{r}
+ggsave(
+  plot = plot1,
+  filename = "Income_Inequality.png",
+  width = 12,
+  height = 8,
+  units = "in",
+  dpi = 300)
+```
+
+## Save Data
+```{r}
+sessionInfo()
+```
+
